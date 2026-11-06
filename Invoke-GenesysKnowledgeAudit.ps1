@@ -127,6 +127,18 @@ Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
 # ---------------------------------------------------------------------------------------------------------------
+# region Embedded credentials (optional)
+#   Fill these in to run the script without -ClientId/-ClientSecret or the GENESYS_CLIENT_ID / GENESYS_CLIENT_SECRET
+#   environment variables. Precedence: parameter > environment variable > embedded value > interactive prompt.
+#   WARNING: anything placed here is stored in clear text. Keep this file out of source control (or strip the
+#   values before committing) and restrict NTFS permissions on it; the OAuth client should carry only the
+#   read-only permissions listed in README.md.
+# ---------------------------------------------------------------------------------------------------------------
+$EmbeddedClientId     = ''      # e.g. '1a2b3c4d-....'
+$EmbeddedClientSecret = ''      # e.g. 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+# endregion
+
+# ---------------------------------------------------------------------------------------------------------------
 # region Script-level state
 # ---------------------------------------------------------------------------------------------------------------
 $script:ApiBase    = if ($ApiBaseUri)   { $ApiBaseUri.TrimEnd('/') }   else { "https://api.$Region" }
@@ -267,9 +279,14 @@ function Get-GcToken {
 }
 
 function Resolve-ClientSecret {
+    <# Secret precedence: -ClientSecret parameter > GENESYS_CLIENT_SECRET env var > $EmbeddedClientSecret > prompt. #>
     param([securestring] $Provided)
     if ($Provided) { return $Provided }
     if ($env:GENESYS_CLIENT_SECRET) { return (ConvertTo-SecureString -String $env:GENESYS_CLIENT_SECRET -AsPlainText -Force) }
+    if (-not [string]::IsNullOrWhiteSpace($EmbeddedClientSecret)) {
+        Write-Log 'Using the client secret embedded in the script file.' -Level WARN
+        return (ConvertTo-SecureString -String $EmbeddedClientSecret -AsPlainText -Force)
+    }
     return (Read-Host -Prompt 'Enter Genesys Cloud OAuth client secret' -AsSecureString)
 }
 # endregion
@@ -870,6 +887,8 @@ try {
     else { Write-Log 'PII masking OFF: full utterance text WILL be written to disk (-IncludeUtteranceText).' -Level WARN }
 
     # ---- Auth -------------------------------------------------------------------------------------------------
+    # Client ID precedence: -ClientId parameter > GENESYS_CLIENT_ID env var (parameter default) > $EmbeddedClientId > prompt.
+    if ([string]::IsNullOrWhiteSpace($ClientId) -and -not [string]::IsNullOrWhiteSpace($EmbeddedClientId)) { $ClientId = $EmbeddedClientId }
     if ([string]::IsNullOrWhiteSpace($ClientId)) { $ClientId = Read-Host -Prompt 'Enter Genesys Cloud OAuth client ID' }
     $script:ClientIdValue = $ClientId
     $script:ClientSecretValue = Resolve-ClientSecret -Provided $ClientSecret

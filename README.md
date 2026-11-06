@@ -96,6 +96,9 @@ you can re-slice in Power BI; they are not Copilot thresholds and the script nev
 $env:GENESYS_CLIENT_ID     = '<client id>'
 $env:GENESYS_CLIENT_SECRET = '<client secret>'     # or omit and you will be prompted for a SecureString
 ```
+Alternatively set `$EmbeddedClientId` / `$EmbeddedClientSecret` in the block near the top of the script. Precedence is
+parameter → environment variable → embedded value → prompt. Embedded values are clear text: keep the file out of source control
+and lock down its file permissions. The script logs a warning whenever the embedded secret is used.
 
 ### Typical weekly run (Sydney region is the default)
 ```powershell
