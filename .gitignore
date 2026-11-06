@@ -1,0 +1,4 @@
+tests/out/
+tests/out*/
+*.log
+*.transcript.txt
